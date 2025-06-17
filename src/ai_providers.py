@@ -61,12 +61,14 @@ class OpenAIProvider(APIProvider):
                             {"type": "text", "text": prompt},
                             {
                                 "type": "image_url",
-                                "image_url": {"url": f"data:image/png;base64,{base64_image}"}
+                                "image_url": {
+                                    "url": f"data:image/png;base64,{base64_image}"
+                                }
                             }
                         ]
                     }
                 ],
-                max_tokens=300
+                max_completion_tokens=6000
             )
             return response.choices[0].message.content.strip()
         except Exception as e:

@@ -28,6 +28,8 @@ def main():
     parser.add_argument('--config', help='Path to .env config file')
     parser.add_argument('-t', '--threads', type=int, default=8, 
                        help='Number of threads for transcript processing (default: 8)')
+    parser.add_argument('-p', '--api-provider', choices=['gemini', 'openai'], default='gemini',
+                       help='AI API provider to use (default: gemini)')
     
     args = parser.parse_args()
     
@@ -40,7 +42,8 @@ def main():
         
         # Load configuration with command line overrides
         config = Config(env_file=args.config, input_pdf=str(input_pdf_path), 
-                       output_dir=args.output, thread_count=args.threads)
+                       output_dir=args.output, thread_count=args.threads, 
+                       api_provider=args.api_provider)
         
         # Initialize pipeline
         pipeline = PDF2VideoPipeline(config)

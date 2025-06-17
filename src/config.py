@@ -8,14 +8,14 @@ from dotenv import load_dotenv
 class Config:
     """Configuration management using environment variables."""
     
-    def __init__(self, env_file: str = None, input_pdf: str = None, output_dir: str = None, thread_count: int = None):
+    def __init__(self, env_file: str = None, input_pdf: str = None, output_dir: str = None, thread_count: int = None, api_provider: str = None):
         if env_file:
             load_dotenv(env_file)
         else:
             load_dotenv()
         
-        # API Configuration
-        self.api_provider = os.getenv('API_PROVIDER', 'gemini').lower()
+        # API Configuration - command line argument overrides environment variable
+        self.api_provider = api_provider 
         self.gemini_api_key = os.getenv('GEMINI_API_KEY')
         self.openai_api_key = os.getenv('OPENAI_API_KEY')
         
