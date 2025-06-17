@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import List, Optional
 
 from .config import Config
-from .ai_providers import AIProviderFactory
 from .processors.pdf_processor import PDFProcessor
 from .processors.transcript_processor import TranscriptProcessor
 from .processors.audio_processor import AudioProcessor
@@ -25,7 +24,7 @@ class PDF2VideoPipeline:
     
     def _setup_processors(self):
         """Initialize all processors with configuration."""
-        # AI Provider
+        # AI Provider configuration
         if self.config.api_provider == 'gemini':
             api_key = self.config.gemini_api_key
             model_name = self.config.gemini_model
@@ -33,16 +32,15 @@ class PDF2VideoPipeline:
             api_key = self.config.openai_api_key
             model_name = self.config.openai_model
         
-        ai_provider = AIProviderFactory.create_provider(
-            self.config.api_provider, api_key, model_name
-        )
         logger.info(f"Using {self.config.api_provider} model: {model_name}")
         
         # Initialize processors
         self.pdf_processor = PDFProcessor(dpi=self.config.image_dpi)
         
         self.transcript_processor = TranscriptProcessor(
-            ai_provider=ai_provider,
+            ai_provider_type=self.config.api_provider,
+            api_key=api_key,
+            model_name=model_name,
             prompt=self.config.voiceover_prompt,
             thread_count=self.config.thread_count
         )

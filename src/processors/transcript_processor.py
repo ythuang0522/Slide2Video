@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from ..ai_providers import APIProvider
+from ..ai_providers import AIProviderFactory
 
 logger = logging.getLogger(__name__)
 
@@ -13,10 +13,21 @@ logger = logging.getLogger(__name__)
 class TranscriptProcessor:
     """Handles transcript generation from images using AI providers."""
     
-    def __init__(self, ai_provider: APIProvider, prompt: str, thread_count: int = 4):
-        self.ai_provider = ai_provider
+    def __init__(self, ai_provider_type: str, api_key: str, model_name: str, prompt: str, thread_count: int = 4):
+        # Store provider configuration instead of instance
+        self.ai_provider_type = ai_provider_type
+        self.api_key = api_key
+        self.model_name = model_name
         self.prompt = prompt
         self.thread_count = thread_count
+    
+    def _create_ai_provider(self):
+        """Create a new AI provider instance for thread-safe operations."""
+        return AIProviderFactory.create_provider(
+            self.ai_provider_type, 
+            self.api_key, 
+            self.model_name
+        )
     
     def _generate_single_transcript(self, image_path: str, output_dir: Path) -> str:
         """Generate transcript for a single image."""
@@ -24,7 +35,10 @@ class TranscriptProcessor:
         transcript_path = output_dir / f"{basename}.txt"
         
         logger.info(f"Generating transcript for {basename}...")
-        description = self.ai_provider.generate_description(image_path, self.prompt)
+        
+        # Create a thread-local AI provider instance
+        ai_provider = self._create_ai_provider()
+        description = ai_provider.generate_description(image_path, self.prompt)
         
         with open(transcript_path, 'w', encoding='utf-8') as f:
             f.write(description)
