@@ -43,7 +43,8 @@ class PDF2VideoPipeline:
         
         self.transcript_processor = TranscriptProcessor(
             ai_provider=ai_provider,
-            prompt=self.config.voiceover_prompt
+            prompt=self.config.voiceover_prompt,
+            thread_count=self.config.thread_count
         )
         
         self.audio_processor = AudioProcessor(
@@ -51,7 +52,8 @@ class PDF2VideoPipeline:
             voice_name=self.config.tts_voice,
             voice_gender=self.config.tts_voice_gender,
             audio_format=self.config.audio_format,
-            is_chirp3_voice=self.config.is_chirp3_voice
+            is_chirp3_voice=self.config.is_chirp3_voice,
+            thread_count=self.config.thread_count
         )
         
         self.video_processor = VideoProcessor(

@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 class Config:
     """Configuration management using environment variables."""
     
-    def __init__(self, env_file: str = None):
+    def __init__(self, env_file: str = None, input_pdf: str = None, output_dir: str = None, thread_count: int = None):
         if env_file:
             load_dotenv(env_file)
         else:
@@ -31,14 +31,15 @@ class Config:
         # Detect voice type for API compatibility
         self.is_chirp3_voice = 'Chirp3-HD' in self.tts_voice if self.tts_voice else False
         
-        # File Configuration
-        self.input_pdf = os.getenv('INPUT_PDF', 'presentation.pdf')
-        self.output_dir = Path(os.getenv('OUTPUT_DIR', 'output'))
+        # File Configuration - command line arguments override environment variables
+        self.input_pdf = input_pdf
+        self.output_dir = Path(output_dir)
         
         # Processing Configuration
         self.image_dpi = int(os.getenv('IMAGE_DPI', '200'))
         self.audio_format = os.getenv('AUDIO_FORMAT', 'wav').lower()
         self.video_quality = int(os.getenv('VIDEO_QUALITY', '23'))
+        self.thread_count = thread_count or int(os.getenv('THREAD_COUNT', '4'))
         
         # Prompt Configuration
         self.voiceover_prompt = os.getenv('VOICEOVER_PROMPT', 

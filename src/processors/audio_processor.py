@@ -3,6 +3,7 @@
 import logging
 from pathlib import Path
 from typing import List
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from google.cloud import texttospeech
 
@@ -13,40 +14,64 @@ class AudioProcessor:
     """Handles text-to-speech conversion."""
     
     def __init__(self, language_code: str, voice_name: str, voice_gender: str, 
-                 audio_format: str = 'wav', is_chirp3_voice: bool = False):
+                 audio_format: str = 'wav', is_chirp3_voice: bool = False, thread_count: int = 4):
         self.language_code = language_code
         self.voice_name = voice_name
         self.voice_gender = voice_gender
         self.audio_format = audio_format
         self.is_chirp3_voice = is_chirp3_voice
+        self.thread_count = thread_count
         self.tts_client = texttospeech.TextToSpeechClient()
     
+    def _generate_single_audio(self, transcript_path: str, output_dir: Path) -> str:
+        """Generate audio file for a single transcript."""
+        basename = Path(transcript_path).stem
+        audio_path = output_dir / f"{basename}.{self.audio_format}"
+        
+        # Read transcript
+        with open(transcript_path, 'r', encoding='utf-8') as f:
+            text = f.read().strip()
+        
+        logger.info(f"Generating audio for {basename}...")
+        
+        # Generate audio using TTS
+        audio_content = self._synthesize_speech(text)
+        
+        with open(audio_path, "wb") as f:
+            f.write(audio_content)
+        
+        logger.info(f"Audio saved to {audio_path}")
+        return str(audio_path)
+    
     def generate_audio_files(self, transcript_paths: List[str], output_dir: Path) -> List[str]:
-        """Generate audio files from transcripts."""
-        logger.info("Generating audio files...")
+        """Generate audio files from transcripts using multiple threads."""
+        logger.info(f"Generating audio files using {self.thread_count} threads...")
         
         output_dir.mkdir(parents=True, exist_ok=True)
         
         audio_paths = []
-        for transcript_path in transcript_paths:
-            basename = Path(transcript_path).stem
-            audio_path = output_dir / f"{basename}.{self.audio_format}"
-            
-            # Read transcript
-            with open(transcript_path, 'r', encoding='utf-8') as f:
-                text = f.read().strip()
-            
-            logger.info(f"Generating audio for {basename}...")
-            
-            # Generate audio using TTS
-            audio_content = self._synthesize_speech(text)
-            
-            with open(audio_path, "wb") as f:
-                f.write(audio_content)
-            
-            audio_paths.append(str(audio_path))
-            logger.info(f"Audio saved to {audio_path}")
         
+        with ThreadPoolExecutor(max_workers=self.thread_count) as executor:
+            # Submit all tasks
+            future_to_transcript = {
+                executor.submit(self._generate_single_audio, transcript_path, output_dir): transcript_path
+                for transcript_path in transcript_paths
+            }
+            
+            # Collect results as they complete
+            for future in as_completed(future_to_transcript):
+                transcript_path = future_to_transcript[future]
+                try:
+                    audio_path = future.result()
+                    audio_paths.append(audio_path)
+                except Exception as exc:
+                    logger.error(f"Error processing {transcript_path}: {exc}")
+                    raise
+        
+        # Sort audio paths to maintain order
+        audio_paths.sort()
+        
+        logger.info(f"Generated {len(audio_paths)} audio files")
         return audio_paths
     
     def _synthesize_speech(self, text: str) -> bytes:
