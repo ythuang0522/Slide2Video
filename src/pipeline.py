@@ -8,6 +8,7 @@ from typing import List, Optional
 from .config import Config
 from .processors.pdf_processor import PDFProcessor
 from .processors.transcript_processor import TranscriptProcessor
+from .processors.transcript_polisher import TranscriptPolisher
 from .processors.audio_processor import AudioProcessor
 from .processors.video_processor import VideoProcessor
 
@@ -45,6 +46,19 @@ class PDF2VideoPipeline:
             thread_count=self.config.thread_count
         )
         
+        # Initialize transcript polisher if enabled
+        if self.config.enable_polishing:
+            self.transcript_polisher = TranscriptPolisher(
+                ai_provider_type=self.config.api_provider,
+                api_key=api_key,
+                model_name=model_name,
+                polishing_prompt=self.config.polishing_prompt,
+                first_slide_prompt=self.config.first_slide_prompt,
+                thread_count=self.config.thread_count
+            )
+        else:
+            self.transcript_polisher = None
+        
         self.audio_processor = AudioProcessor(
             language_code=self.config.tts_language,
             voice_name=self.config.tts_voice,
@@ -57,7 +71,8 @@ class PDF2VideoPipeline:
         self.video_processor = VideoProcessor(
             fps=24,
             codec='libx264',
-            audio_codec='aac'
+            audio_codec='aac',
+            transition_break=1.0  # 1 second break between slides
         )
     
     def _ensure_directories(self):
@@ -75,11 +90,16 @@ class PDF2VideoPipeline:
             # Step 2: Generate transcripts
             transcript_paths = self.generate_transcripts(image_paths)
             
-            # Step 3: Generate audio
-            audio_paths = self.generate_audio(transcript_paths)
+            # Step 3: Polish transcripts (if enabled)
+            final_transcript_paths = transcript_paths
+            if self.config.enable_polishing:
+                final_transcript_paths = self.polish_transcripts(transcript_paths)
             
-            # Step 4: Create video
-            video_path, subtitle_path = self.create_video(image_paths, audio_paths, transcript_paths)
+            # Step 4: Generate audio
+            audio_paths = self.generate_audio(final_transcript_paths)
+            
+            # Step 5: Create video
+            video_path, subtitle_path = self.create_video(image_paths, audio_paths, final_transcript_paths)
             
             logger.info("✅ Pipeline completed successfully!")
             return video_path, subtitle_path
@@ -105,10 +125,28 @@ class PDF2VideoPipeline:
             self.config.transcripts_dir
         )
     
+    def polish_transcripts(self, transcript_paths: Optional[List[str]] = None) -> List[str]:
+        """Polish transcripts for improved narrative flow."""
+        if transcript_paths is None:
+            transcript_paths = sorted(glob.glob(str(self.config.transcripts_dir / "*.txt")))
+        
+        if not self.transcript_polisher:
+            logger.warning("Transcript polishing requested but not enabled")
+            return transcript_paths
+        
+        return self.transcript_polisher.polish_transcripts(
+            transcript_paths,
+            self.config.polished_transcripts_dir
+        )
+    
     def generate_audio(self, transcript_paths: Optional[List[str]] = None) -> List[str]:
         """Generate audio files from transcripts."""
         if transcript_paths is None:
-            transcript_paths = sorted(glob.glob(str(self.config.transcripts_dir / "*.txt")))
+            # Use polished transcripts if available, otherwise fall back to original
+            if self.config.enable_polishing:
+                transcript_paths = sorted(glob.glob(str(self.config.polished_transcripts_dir / "*.txt")))
+            else:
+                transcript_paths = sorted(glob.glob(str(self.config.transcripts_dir / "*.txt")))
         
         return self.audio_processor.generate_audio_files(
             transcript_paths, 
@@ -132,5 +170,6 @@ class PDF2VideoPipeline:
             image_paths, 
             audio_paths, 
             transcript_paths, 
-            self.config.output_dir
+            self.config.output_dir,
+            self.config.pdf_filename_stem
         ) 

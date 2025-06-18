@@ -13,13 +13,16 @@ logger = logging.getLogger(__name__)
 class VideoProcessor:
     """Handles video creation and subtitle generation."""
     
-    def __init__(self, fps: int = 24, codec: str = 'libx264', audio_codec: str = 'aac'):
+    def __init__(self, fps: int = 24, codec: str = 'libx264', audio_codec: str = 'aac', 
+                 transition_break: float = 1.0):
         self.fps = fps
         self.codec = codec
         self.audio_codec = audio_codec
+        self.transition_break = transition_break  # seconds of break between slides
     
     def create_video_with_subtitles(self, image_paths: List[str], audio_paths: List[str], 
-                                  transcript_paths: List[str], output_dir: Path) -> tuple[str, str]:
+                                  transcript_paths: List[str], output_dir: Path, 
+                                  base_filename: str = "final_video") -> tuple[str, str]:
         """Create final video with subtitles."""
         logger.info("Creating final video...")
         
@@ -33,20 +36,26 @@ class VideoProcessor:
         for i, (image_path, audio_path) in enumerate(zip(image_paths, audio_paths)):
             # Load audio to get duration
             audio_clip = AudioFileClip(audio_path)
-            duration = audio_clip.duration
+            audio_duration = audio_clip.duration
             
-            # Create video clip
-            image_clip = ImageClip(image_path, duration=duration)
+            # Calculate total clip duration (audio + optional transition break)
+            is_last_slide = (i == len(image_paths) - 1)
+            total_duration = audio_duration
+            if not is_last_slide and self.transition_break > 0:
+                total_duration += self.transition_break
+            
+            # Create video clip - image stays longer if there's a break
+            image_clip = ImageClip(image_path, duration=total_duration)
             video_clip = image_clip.set_audio(audio_clip)
             clips.append(video_clip)
             
-            # Prepare SRT entry
+            # Prepare SRT entry (only covers the spoken part, not the break)
             if i < len(transcript_paths):
                 with open(transcript_paths[i], 'r', encoding='utf-8') as f:
                     transcript = f.read().strip()
                 
                 start_time = current_time
-                end_time = current_time + duration
+                end_time = current_time + audio_duration
                 
                 srt_entries.append({
                     'index': i + 1,
@@ -54,14 +63,15 @@ class VideoProcessor:
                     'end': end_time,
                     'text': transcript
                 })
-                
-                current_time = end_time
+            
+            # Update current time for next slide
+            current_time += total_duration
         
         # Concatenate all clips
         final_video = concatenate_videoclips(clips)
         
         # Save video
-        video_output_path = output_dir / "final_video.mp4"
+        video_output_path = output_dir / f"{base_filename}.mp4"
         final_video.write_videofile(
             str(video_output_path),
             fps=self.fps,
@@ -72,7 +82,7 @@ class VideoProcessor:
         )
         
         # Generate SRT file
-        srt_output_path = output_dir / "final_video.srt"
+        srt_output_path = output_dir / f"{base_filename}.srt"
         self._write_srt_file(srt_entries, srt_output_path)
         
         logger.info(f"Video created: {video_output_path}")

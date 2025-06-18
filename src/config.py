@@ -41,9 +41,50 @@ class Config:
         self.video_quality = int(os.getenv('VIDEO_QUALITY', '23'))
         self.thread_count = thread_count or int(os.getenv('THREAD_COUNT', '4'))
         
-        # Prompt Configuration
+        # Voiceover Prompt Configuration
         self.voiceover_prompt = os.getenv('VOICEOVER_PROMPT', 
-            'Describe this slide for a presentation voiceover. Be clear, concise, and engaging.')
+            '''Describe this slide for a presentation voiceover. Be clear, concise, and engaging.
+INSTRUCTIONS:
+- For very complex figures, tables, mathematical formula etc., do not have to describe all elements in detail. But you must describe the key elements, main points and key takeaways.
+- For simple figures, tables, mathematical formula etc., you can describe them in detail.
+- Do not describe the background logo and department information unrelated to the teaching content.
+- Do not write any tone intructions and markdown syntax in the voiceover transcript.''')
+        
+        # Transcript Polishing Configuration
+        self.enable_polishing = os.getenv('ENABLE_POLISHING', 'true').lower() == 'true'
+        self.polishing_prompt = os.getenv('POLISHING_PROMPT', '''Polish the current slide voiceover transcript for smooth narrative flow from previous slide voiceover transcript.
+
+PREVIOUS SLIDE VOICEOVER TRANSCRIPT:
+{previous_content}
+
+CURRENT SLIDE VOICEOVER TRANSCRIPT (to be polished):
+{current_content}
+
+INSTRUCTIONS:
+- Improve the CURRENT voiceover transcript while keeping its topic and main focus unchanged
+- Keep ALL technical details, information, and main points from the current slide voiceover transcript
+- Add smooth transitional phrases at the beginning ONLY if the previous slide voiceover transcript is closely related to the current one
+- Add conversational tone with natural punctuation (e.g., !, …, ?)
+- Do NOT change the core content or subject matter of the current voiceover transcript
+- Return only the polished version of the CURRENT voiceover transcript
+
+POLISHED CURRENT SLIDE VOICEOVER TRANSCRIPT:''')
+        
+        # First Slide Special Prompt Configuration
+        self.first_slide_prompt = os.getenv('FIRST_SLIDE_PROMPT', '''Create an engaging introduction for the first slide of a presentation.
+
+ORIGINAL FIRST SLIDE TRANSCRIPT:
+{current_content}
+
+INSTRUCTIONS:
+- Understand the main topic from the current transcript and create a brief, engaging introduction that gives students a high-level overview of what they will learn
+- Add conversational tone with natural punctuation (e.g., !, …, ?)
+- Include a simple daily life example or analogy to make the topic relatable if possible
+- Keep it concise (30-60 seconds of speech)
+- Focus only on the educational content and learning objectives
+- End with a transition like "Let's dive in!" or "Let's get started!" or "Let's start with the first slide." or "Let's go!"
+
+ENGAGING FIRST SLIDE INTRODUCTION:''')
         
         self._validate_config()
     
@@ -76,7 +117,20 @@ class Config:
         """Get the audio output directory."""
         return self.output_dir / "audio"
     
+    @property
+    def polished_transcripts_dir(self) -> Path:
+        """Get the polished transcripts output directory."""
+        return self.output_dir / "polished_transcripts"
+    
+    @property
+    def pdf_filename_stem(self) -> str:
+        """Get the input PDF filename without extension for naming output files."""
+        return Path(self.input_pdf).stem
+    
     def ensure_output_dirs(self):
         """Create all necessary output directories."""
-        for dir_path in [self.images_dir, self.transcripts_dir, self.audio_dir, self.output_dir]:
+        dirs = [self.images_dir, self.transcripts_dir, self.audio_dir, self.output_dir]
+        if self.enable_polishing:
+            dirs.append(self.polished_transcripts_dir)
+        for dir_path in dirs:
             dir_path.mkdir(parents=True, exist_ok=True) 

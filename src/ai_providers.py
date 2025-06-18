@@ -30,6 +30,12 @@ class GeminiProvider(APIProvider):
     def generate_description(self, image_path: str, prompt: str) -> str:
         """Generate description using Gemini API."""
         try:
+            # Handle text-only processing (for polishing)
+            if not image_path or image_path == "":
+                response = self.model.generate_content([prompt])
+                return response.text.strip()
+            
+            # Handle image + text processing (for initial transcripts)
             image_file = genai.upload_file(path=image_path)
             response = self.model.generate_content([prompt, image_file])
             return response.text.strip()
@@ -48,6 +54,23 @@ class OpenAIProvider(APIProvider):
     def generate_description(self, image_path: str, prompt: str) -> str:
         """Generate description using OpenAI API."""
         try:
+            # Handle text-only processing (for polishing)
+            if not image_path or image_path == "":
+                response = self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": prompt}
+                            ]
+                        }
+                    ],
+                    max_completion_tokens=6000
+                )
+                return response.choices[0].message.content.strip()
+            
+            # Handle image + text processing (for initial transcripts)
             # Encode image to base64
             with open(image_path, "rb") as image_file:
                 base64_image = base64.b64encode(image_file.read()).decode('utf-8')
