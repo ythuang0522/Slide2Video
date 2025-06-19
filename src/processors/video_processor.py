@@ -99,7 +99,17 @@ class VideoProcessor:
             codec=self.codec,
             audio_codec=self.audio_codec,
             temp_audiofile='temp-audio.m4a',
-            remove_temp=True
+            remove_temp=True,
+            # Web-optimized settings for platform compatibility
+            ffmpeg_params=[
+                '-movflags', '+faststart',  # Enable progressive download
+                '-pix_fmt', 'yuv420p',      # Ensure broad compatibility
+                '-profile:v', 'main',       # H.264 main profile
+                '-level', '4.0',            # H.264 level 4.0
+                '-crf', '23',               # Constant Rate Factor for quality
+                '-preset', 'medium',        # Encoding speed vs compression
+                '-f', 'mp4'                 # Force MP4 container format
+            ]
         )
         
         # Generate SRT file
@@ -116,7 +126,7 @@ class VideoProcessor:
         
         return str(video_output_path), str(srt_output_path)
     
-    def _split_text_into_subtitle_chunks(self, text: str, max_chars_per_line: int = 42, 
+    def _split_text_into_subtitle_chunks(self, text: str, max_chars_per_line: int = 50, 
                                        max_lines: int = 2) -> List[str]:
         """Split text into readable subtitle chunks with guaranteed content preservation."""
         if not text.strip():

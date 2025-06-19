@@ -57,6 +57,7 @@ Thumbs.db
 
 # Output files (generated content)
 output/
+output_*/
 *.mp4
 *.wav
 *.mp3
