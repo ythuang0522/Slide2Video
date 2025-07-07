@@ -66,11 +66,18 @@ output_*/
 *.jpeg
 *.srt
 
+# PDF files (input files)
+*.pdf
+presentation.pdf
+
+# PowerPoint and presentation files (input files)
+*.ppt
+*.pptx
+*.pps
+*.ppsx
+*.odp
+
 # Temporary files
 temp-audio.m4a
 *.tmp
-*.temp
-
-# PDF files (input files)
-*.pdf
-presentation.pdf 
+*.temp 
