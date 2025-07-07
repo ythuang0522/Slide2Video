@@ -14,13 +14,14 @@ class AudioProcessor:
     """Handles text-to-speech conversion."""
     
     def __init__(self, language_code: str, voice_name: str, voice_gender: str, 
-                 audio_format: str = 'wav', is_chirp3_voice: bool = False, thread_count: int = 4):
+                 audio_format: str = 'wav', is_chirp3_voice: bool = False, thread_count: int = 4, speaking_rate: float = 1.0):
         self.language_code = language_code
         self.voice_name = voice_name
         self.voice_gender = voice_gender
         self.audio_format = audio_format
         self.is_chirp3_voice = is_chirp3_voice
         self.thread_count = thread_count
+        self.speaking_rate = speaking_rate  # 0.25 to 4.0, where 1.0 is normal speed
         self.tts_client = texttospeech.TextToSpeechClient()
     
     def _generate_single_audio(self, transcript_path: str, output_dir: Path) -> str:
@@ -32,7 +33,7 @@ class AudioProcessor:
         with open(transcript_path, 'r', encoding='utf-8') as f:
             text = f.read().strip()
         
-        logger.info(f"Generating audio for {basename}...")
+        logger.info(f"Generating audio for {basename} (format: {self.audio_format})...")
         
         # Generate audio using TTS
         audio_content = self._synthesize_speech(text)
@@ -40,7 +41,7 @@ class AudioProcessor:
         with open(audio_path, "wb") as f:
             f.write(audio_content)
         
-        logger.info(f"Audio saved to {audio_path}")
+        logger.info(f"Audio saved to {audio_path} (actual format: {self.audio_format})")
         return str(audio_path)
     
     def generate_audio_files(self, transcript_paths: List[str], output_dir: Path) -> List[str]:
@@ -103,7 +104,13 @@ class AudioProcessor:
         else:  # mp3
             audio_encoding = texttospeech.AudioEncoding.MP3
         
-        audio_config = texttospeech.AudioConfig(audio_encoding=audio_encoding)
+        # Debug logging
+        logger.info(f"Audio format setting: {self.audio_format}, Encoding: {audio_encoding}, Chirp3: {self.is_chirp3_voice}")
+        
+        audio_config = texttospeech.AudioConfig(
+            audio_encoding=audio_encoding,
+            speaking_rate=self.speaking_rate
+        )
         
         # Generate audio
         try:

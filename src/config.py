@@ -1,6 +1,7 @@
 """Configuration management for PDF to Video Converter."""
 
 import os
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -20,13 +21,14 @@ class Config:
         self.openai_api_key = os.getenv('OPENAI_API_KEY')
         
         # LLM Model Configuration
-        self.gemini_model = os.getenv('GEMINI_MODEL', 'gemini-1.5-flash')
+        self.gemini_model = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
         self.openai_model = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
         
         # Google TTS Configuration
-        self.tts_language = os.getenv('TTS_LANGUAGE_CODE', 'en-US')
-        self.tts_voice = os.getenv('TTS_VOICE_NAME', 'en-US-Neural2-D')
+        self.tts_language = os.getenv('TTS_LANGUAGE_CODE', 'cmn-CN')
+        self.tts_voice = os.getenv('TTS_VOICE_NAME', 'cmn-CN-Chirp3-HD-Aoede')
         self.tts_voice_gender = os.getenv('TTS_VOICE_GENDER', 'NEUTRAL')
+        self.tts_speaking_rate = float(os.getenv('TTS_SPEAKING_RATE', '1.0'))  # 0.25 to 4.0, where 1.0 is normal speed
         
         # Detect voice type for API compatibility
         self.is_chirp3_voice = 'Chirp3-HD' in self.tts_voice if self.tts_voice else False
@@ -39,7 +41,17 @@ class Config:
         self.image_dpi = int(os.getenv('IMAGE_DPI', '200'))
         self.audio_format = os.getenv('AUDIO_FORMAT', 'wav').lower()
         self.video_quality = int(os.getenv('VIDEO_QUALITY', '23'))
+        self.video_preset = os.getenv('VIDEO_PRESET', 'medium')
+        self.resolution_scale = float(os.getenv('RESOLUTION_SCALE', '1.0'))
         self.thread_count = thread_count or int(os.getenv('THREAD_COUNT', '4'))
+        
+        # Debug logging for audio format
+        logger = logging.getLogger(__name__)
+        logger.info(f"Config loaded: TTS_SPEAKING_RATE={self.tts_speaking_rate} ")
+        logger.info(f"Config loaded: TTS_VOICE_GENDER={self.tts_voice_gender} ")
+        logger.info(f"Config loaded: TTS_VOICE={self.tts_voice} ")
+        logger.info(f"Config loaded: TTS_LANGUAGE={self.tts_language} ")
+        logger.info(f"Config loaded: AUDIO_FORMAT={self.audio_format} ")
         
         # Voiceover Prompt Configuration
         self.voiceover_prompt = os.getenv('VOICEOVER_PROMPT', 
@@ -47,7 +59,7 @@ class Config:
 INSTRUCTIONS:
 - For very complex figures, tables, mathematical formula etc., do not have to describe all elements in detail. But you must describe the key elements, main points and key takeaways.
 - For simple figures, tables, mathematical formula etc., you can describe them in detail.
-- Do not describe the background logo and department information unrelated to the teaching content.
+- Do not describe the background logo and departmental information unrelated to the slide teaching content.
 - Do not write any tone intructions and markdown syntax in the voiceover transcript.''')
         
         # Transcript Polishing Configuration
@@ -64,6 +76,7 @@ INSTRUCTIONS:
 - Improve the CURRENT voiceover transcript while keeping its topic and main focus unchanged
 - Keep ALL technical details, information, and main points from the current slide voiceover transcript
 - Add smooth transitional phrases at the beginning ONLY if the previous slide voiceover transcript is closely related to the current one
+- Add smooth transitional phrases at the end ONLY if the current slide voiceover transcript is closely related to the next slide voiceover transcript
 - Add conversational tone with natural punctuation (e.g., !, …, ?)
 - Do NOT change the core content or subject matter of the current voiceover transcript
 - Return only the polished version of the CURRENT voiceover transcript

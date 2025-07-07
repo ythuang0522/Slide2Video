@@ -65,14 +65,18 @@ class PDF2VideoPipeline:
             voice_gender=self.config.tts_voice_gender,
             audio_format=self.config.audio_format,
             is_chirp3_voice=self.config.is_chirp3_voice,
-            thread_count=self.config.thread_count
+            thread_count=self.config.thread_count,
+            speaking_rate=self.config.tts_speaking_rate
         )
         
         self.video_processor = VideoProcessor(
             fps=24,
             codec='libx264',
             audio_codec='aac',
-            transition_break=1.0  # 1 second break between slides
+            transition_break=1.0,  # 1 second break between slides
+            video_quality=self.config.video_quality,
+            preset=self.config.video_preset,
+            resolution_scale=self.config.resolution_scale
         )
     
     def _ensure_directories(self):

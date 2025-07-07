@@ -16,11 +16,15 @@ class VideoProcessor:
     """Handles video creation and subtitle generation."""
     
     def __init__(self, fps: int = 24, codec: str = 'libx264', audio_codec: str = 'aac', 
-                 transition_break: float = 1.0):
+                 transition_break: float = 1.0, video_quality: int = 23, 
+                 preset: str = 'medium', resolution_scale: float = 1.0):
         self.fps = fps
         self.codec = codec
         self.audio_codec = audio_codec
         self.transition_break = transition_break  # seconds of break between slides
+        self.video_quality = video_quality  # CRF value (lower = higher quality, larger file)
+        self.preset = preset  # Encoding preset (faster = larger file, slower = smaller file)
+        self.resolution_scale = resolution_scale  # Scale factor for resolution (1.0 = original, 0.5 = half size)
     
     def create_video_with_subtitles(self, image_paths: List[str], audio_paths: List[str], 
                                   transcript_paths: List[str], output_dir: Path, 
@@ -49,6 +53,11 @@ class VideoProcessor:
             
             # Create video clip - image stays longer if there's a break
             image_clip = ImageClip(image_path, duration=total_duration)
+            
+            # Apply resolution scaling if specified
+            if self.resolution_scale != 1.0:
+                image_clip = image_clip.resize(self.resolution_scale)
+            
             video_clip = image_clip.set_audio(audio_clip)
             clips.append(video_clip)
             
@@ -91,25 +100,34 @@ class VideoProcessor:
         # Concatenate all clips
         final_video = concatenate_videoclips(clips)
         
-        # Save video
+        # Save video with configurable quality settings
         video_output_path = output_dir / f"{base_filename}.mp4"
+        
+        # Build ffmpeg parameters for size optimization
+        ffmpeg_params = [
+            '-movflags', '+faststart',  # Enable progressive download
+            '-pix_fmt', 'yuv420p',      # Ensure broad compatibility
+            '-profile:v', 'main',       # H.264 main profile
+            '-level', '4.0',            # H.264 level 4.0
+            '-crf', str(self.video_quality),  # Configurable quality (18-28 typical range)
+            '-preset', self.preset,     # Configurable encoding preset
+            '-f', 'mp4'                 # Force MP4 container format
+        ]
+        
+        # Log compression settings
+        logger.info(f"Video compression settings: CRF={self.video_quality}, preset={self.preset}, resolution_scale={self.resolution_scale}")
+        
+        # Create temp audio filename based on base filename
+        temp_audio_filename = f'temp-audio-{base_filename}.m4a'
+        
         final_video.write_videofile(
             str(video_output_path),
             fps=self.fps,
             codec=self.codec,
             audio_codec=self.audio_codec,
-            temp_audiofile='temp-audio.m4a',
+            temp_audiofile=temp_audio_filename,
             remove_temp=True,
-            # Web-optimized settings for platform compatibility
-            ffmpeg_params=[
-                '-movflags', '+faststart',  # Enable progressive download
-                '-pix_fmt', 'yuv420p',      # Ensure broad compatibility
-                '-profile:v', 'main',       # H.264 main profile
-                '-level', '4.0',            # H.264 level 4.0
-                '-crf', '23',               # Constant Rate Factor for quality
-                '-preset', 'medium',        # Encoding speed vs compression
-                '-f', 'mp4'                 # Force MP4 container format
-            ]
+            ffmpeg_params=ffmpeg_params
         )
         
         # Generate SRT file
